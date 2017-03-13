@@ -7,18 +7,19 @@ from strategies import randomStrategy, greedyStrategy, smartGreedyStrategy, oppo
 from minimax import MinimaxAgent, AlphaBetaAgent, ExpectimaxAgent, cowardCenterDepthFunction, cowardDepthFunction, \
     greedyEvaluationFunction, smartCowardDfunc, survivorDfunc
 from rl import rl_strategy, load_rl_strategy
+from doubleqn import DoubleQNAgent
 from features import FeatureExtractor
 from pdb import set_trace as t
 
-def controller(strategies, grid_size, candy_ratio = 1., max_iter = None, verbose = 0, gui_active = False, game_speed = None):
+def controller(strategies, snake_to_tell, grid_size, candy_ratio = 1., max_iter = None, verbose = 0, gui_active = False, game_speed = None):
     # Pygame Init
     pygame.init()
     clock = pygame.time.Clock()
-    if gui_active:    
+    if gui_active:
         gui_options = gui.Options()
         win = gui.Window(grid_size,'Multiplayer Snake', gui_options)
         quit_game = False
-    
+
     # Start Game
     game = Game(grid_size, len(strategies), candy_ratio = candy_ratio, max_iter = max_iter)
     state = game.startState()
@@ -30,19 +31,19 @@ def controller(strategies, grid_size, candy_ratio = 1., max_iter = None, verbose
             state.printGrid(game.grid_size)
         # Get events
         if gui_active:
-            events = pygame.event.get()         
+            events = pygame.event.get()
             if pygame.QUIT in [ev.type for ev in events]:
-                quit_game = True 
-                continue   
+                quit_game = True
+                continue
 
         # Compute human strategy if necessary
-        human_action = None 
+        human_action = None
         i_human = None
         if humanStrategy in [strategies[i] for i in state.snakes.keys()]:
             i_human = strategies.index(humanStrategy)
             speed = 2. if pygame.K_SPACE in [ev.key for ev in events if ev.type == pygame.KEYDOWN] else 1.
-            arrow_key = False 
-            for event in events:                               
+            arrow_key = False
+            for event in events:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT:
                         human_action = move.Move((-1,0),speed)
@@ -55,16 +56,16 @@ def controller(strategies, grid_size, candy_ratio = 1., max_iter = None, verbose
                         arrow_key = True
                     if event.key == pygame.K_DOWN:
                         human_action = move.Move((0,1),speed)
-                        arrow_key = True      
-                    
+                        arrow_key = True
+
             if not arrow_key:
                 human_action = prev_action
         # Compute the actions for each player following its strategy (except human)
         actions = {i: strategies[i](i, state) for i in state.snakes.keys() if i!=i_human}
- 
+
         # Assign human action
-        if human_action != None: 
-            actions[i_human] = human_action 
+        if human_action != None:
+            actions[i_human] = human_action
             prev_action = human_action
 
         if verbose > 1:
@@ -73,7 +74,7 @@ def controller(strategies, grid_size, candy_ratio = 1., max_iter = None, verbose
 
         # Update the state
         if not game_over:
-            state = game.succ(state, actions, copy = False)
+            state = game.succ(state, snake_to_tell, actions, copy = False)
         # Pause
         if game_speed:
             clock.tick(game_speed)
@@ -82,12 +83,12 @@ def controller(strategies, grid_size, candy_ratio = 1., max_iter = None, verbose
         game_over = game.isEnd(state)
         # if game_over:
            # win.print_message('GAME OVER')
-        
-        # Update gui   
-        if gui_active:     
+
+        # Update gui
+        if gui_active:
             win.updateSprites(state)
             win.refresh()
-        
+
     if verbose > 0:
         state.printGrid(game.grid_size)
 
@@ -103,15 +104,19 @@ if __name__ ==  "__main__":
     minimax_agent = MinimaxAgent(depth=lambda s,a: 2)
     alphabeta_agent = AlphaBetaAgent(depth=lambda s,a: survivorDfunc(s, a, 4, 0.5), evalFn=greedyEvaluationFunction)
     expectimax_agent = ExpectimaxAgent(depth=lambda s,a: cowardCenterDepthFunction(s, a, 2), evalFn=greedyEvaluationFunction)
-    
+
     strategies = [smartGreedyStrategy, opportunistStrategy, alphabeta_agent.getAction]
 
     # add a human player
     # strategies = [humanStrategy, smartGreedyStrategy, opportunistStrategy, alphabeta_agent.getAction]
 
     # add an RL agent
-    featureExtractor = FeatureExtractor(len(strategies), grid_size = 20, radius_ = 10)
-    rlStrategy = load_rl_strategy("nn-nn1-r10-1b.p", strategies, featureExtractor, discount = 0.9, q_type = "nn")
-    strategies.append(rlStrategy)
+    # featureExtractor = FeatureExtractor(len(strategies), grid_size = 20, radius_ = 10)
+    # rlStrategy = load_rl_strategy("nn-nn1-r10-1b.p", strategies, featureExtractor, discount = 0.9, q_type = "nn")
 
-    controller(strategies, 20, max_iter = max_iter, gui_active = True, verbose = 0, game_speed = 10)
+    # add double qn agent
+    nnStrategy = DoubleQNAgent(strategies)
+    strategies.append(nnStrategy.strategy)
+    snake_to_tell = nnStrategy
+
+    controller(strategies, snake_to_tell, 20, max_iter = max_iter, gui_active = True, verbose = 0, game_speed = 10)

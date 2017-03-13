@@ -169,7 +169,7 @@ class State:
             self.addCandy(c, val)
 
 
-    def update(self, moves):
+    def update(self, state, moves, snake_to_tell):
         """
         `moves` is a dict {snake_id => move}
         Update the positions/points of every snakes and check for collisions.
@@ -224,17 +224,27 @@ class State:
 
         # save scores and add candies
         rank = len(self.snakes)
+
+        # reward snake with -1 reward for dying
+        if snake_to_tell.snake_id in deads:
+            snake_to_tell.train_network(state, -1)
+
         for id in deads:
-            self.scores[id] = (rank, self.snakes[id].points) 
+            self.scores[id] = (rank, self.snakes[id].points)
             # add candies on the snake position before last move
             for p in self.snakes[id].position:
                 self.addCandy(p, CANDY_BONUS, dead_snake=id)
             # print "Snake {} died with {} points".format(id, self.snakes[id].points)
             del self.snakes[id]
-        
+
         if len(self.snakes) == 1:
             winner = self.snakes.keys()[0]
             self.scores[winner] = (1, self.snakes[winner].points)
+
+            # reward snake with +1 reward for winning
+            for snake_id, _ in state.snakes.iteritems():
+                if snake_id == snake_to_tell.snake_id:
+                    snake_to_tell.train_network(state, +1)
 
         return self
 
@@ -342,7 +352,7 @@ class Game:
             return len(state.snakes) <= 1
 
 
-    def succ(self, state, actions, copy = True):
+    def succ(self, state, snake_to_tell, actions, copy = True):
         """
         `actions` is a dict {snake_id => move}
         Update snakes' position and randomly add some candies.
@@ -351,8 +361,7 @@ class Game:
             newState = deepcopy(state)
         else:
             newState = state
-        newState.update(actions)
+        newState.update(state, actions, snake_to_tell)
         rand_pos = (random.randint(0, self.grid_size-1), random.randint(0, self.grid_size-1))
         newState.addCandy(rand_pos, CANDY_VAL)
         return newState
-
