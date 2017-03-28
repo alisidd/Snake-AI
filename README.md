@@ -1,13 +1,5 @@
 # Snake-AI - Multiplayer Snake AI
 
-## My contributions
-
-Added a Double QN snake whose training is optimized by experience replay. 
-
-----------------------------------------------------------------------
-
-Read the [blog post](http://bit.do/blog_SnakeAI) to get an overview of this project, as well as some details on the reinforcement learning method implemented (Q-learning with function approximation by neural networks).
-
 ## Running simulations
 You can configure simulations by filling the file `config.py` and then running 1000 simulations through the command:
 ```
